@@ -1,34 +1,21 @@
 #!/usr/bin/env python
 
-# nc.py - simulate the netcat command in python
-# 
-# Copyright (c) 2013 Darren Wurf
-# 
-# This software is provided 'as-is', without any express or implied warranty. In no event will the authors be held liable for any damages arising from the use of this software.
-# 
-# Permission is granted to anyone to use this software for any purpose, including commercial applications, and to alter it and redistribute it freely, subject to the following restrictions:
-# 
-#     1. The origin of this software must not be misrepresented; you must not claim that you wrote the original software. If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
-# 
-#     2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
-# 
-#     3. This notice may not be removed or altered from any source distribution.
+# nc2.py - simulate the netcat command in python2
+#
+# Copyright (c) 2013-2018 Darren Wurf
+#
 
 import socket
 import errno
-import argparse # replaces optparse in 2.7 onwards
+import argparse
 import sys
 import time
 from threading import Thread
-
-try:
-    from Queue import Queue, Empty  # python 2.x
-except ImportError:
-    from queue import Queue, Empty  # python 3.x
+from Queue import Queue, Empty
 
 # CLI options parsing
 parser = argparse.ArgumentParser(
-    description='nc.py: An implementation of NetCat in python'
+    description='nc2.py: An implementation of NetCat in python2'
 )
 parser.add_argument('-l', dest='listen', action='store_const', const=True,
                 default=False, help='listen instead of connect')
@@ -42,16 +29,18 @@ class ReadAsync(object):
         self.read = blocking_function
 
         self.thread = Thread(target=self.enqueue)
-        self.queue = Queue()
+        self.queue = Queue(1024)
         self.thread.daemon = True
 
         self.thread.start()
 
     def enqueue(self):
-        # TODO: the queue can grow without limit, it should have an upper limit
         while True:
             buf = self.read(*self.args)
-            self.queue.put(buf)
+            if len(buf):
+                self.queue.put(buf)
+            else:
+                time.sleep(0.1)
 
     def dequeue(self):
         # Throws an exeption called Empty if there's no data to be read
@@ -89,7 +78,7 @@ stdin = ReadAsync(sys.stdin.readline)
 while True:
     try:
         sys.stdout.write(conn.recv(4096))
-    except socket.error,e:
+    except socket.error as e:
         # POSIX: this error is raised to indicate no data available
         if e.errno != errno.EWOULDBLOCK:
             raise
